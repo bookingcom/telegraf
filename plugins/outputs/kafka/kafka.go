@@ -17,6 +17,8 @@ type Kafka struct {
 	Brokers []string
 	// Kafka topic
 	Topic string
+	// append name to topic bool
+	AppendNameToTopic bool `toml:"append_name_to_topic"`
 	// Routing Key Tag
 	RoutingTag string `toml:"routing_tag"`
 	// Compression Codec Tag
@@ -59,7 +61,9 @@ var sampleConfig = `
   ## URLs of kafka brokers
   brokers = ["localhost:9092"]
   ## Kafka topic for producer messages
-  topic = "telegraf"
+  topic = "metrics.telegraf."
+  ## If true, metric name will be appended to the topic
+  append_name_to_topic = yes
   ## Telegraf tag to use as a routing key
   ##  ie, if this tag exists, its value will be used as the routing key
   routing_tag = "host"
@@ -175,8 +179,12 @@ func (k *Kafka) Write(metrics []telegraf.Metric) error {
 			return err
 		}
 
+		full_topic := k.Topic
+		if k.AppendNameToTopic {
+			full_topic += metric.Name()
+		}
 		m := &sarama.ProducerMessage{
-			Topic: k.Topic,
+			Topic: full_topic,
 			Value: sarama.ByteEncoder(buf),
 		}
 		if h, ok := metric.Tags()[k.RoutingTag]; ok {
